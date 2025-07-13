@@ -4,6 +4,7 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import os
 import re
 from datetime import datetime
+from urllib.parse import quote
 
 app = FastAPI()
 
@@ -30,34 +31,36 @@ def handle_message(event):
             dt = datetime.strptime(f"{y}{m}{d}", "%Y%m%d")
             date_str = dt.strftime('%Y%m%d')
 
-            # 日曜日 or 祝日（外部API使わないので暫定は日曜のみ）
+            # 日曜日の判定（祝日は今後拡張可）
             if dt.weekday() == 6:
                 reply = f"{dt.strftime('%Y年%m月%d日')} は日曜のため利用できません"
             else:
-                # 各URL生成
+                # URL生成
                 goten_url = f"https://www.undoukai-reserve.com/facility/reserve/goten/daytable.php?yearmonthday={date_str}&place=gymnasium"
                 arakawa_url = "https://www.arakawa-sposen.com/category/info/"
                 minato_url = "https://minatoku-sports.com/schedule/"
 
-                # 文京区PDF形式リンク（yyyy / mm-1 / yymm）
+                # 文京区：PDFファイルURL（エンコード付き）
                 year = dt.strftime('%Y')
                 yymm = dt.strftime('%y%m')
-                bunkyo_url = f"https://www.shisetsu-tds.jp/tokyo-bunkyo-sogotaiikukan/wp-content/uploads/sites/93/{year}/04/一般公開　予定表{yymm}-.pdf"
+                month = dt.month
+                dir_month = f"{month - 1:02d}" if month > 1 else "12"
+                dir_year = year if month > 1 else str(int(year) - 1)
 
-                edogawa_url = "https://example.com/edogawa"  # 必要なら後で差し替え
+                filename = f"一般公開　予定表{yymm}-.pdf"
+                filename_encoded = quote(filename)
+                bunkyo_url = f"https://www.shisetsu-tds.jp/tokyo-bunkyo-sogotaiikukan/wp-content/uploads/sites/93/{dir_year}/{dir_month}/{filename_encoded}"
 
-                reply = "\n".join([
-                    f"御殿下体育館：{goten_url}",
-                    f"荒川総合スポーツセンター：{arakawa_url}",
-                    f"港区スポーツセンター：{minato_url}",
-                    f"文京区総合体育館：{bunkyo_url}",
-                    f"江戸川スポーツセンター：{edogawa_url}"
+                reply = "\n\n".join([
+                    f"御殿下体育館：\n{goten_url}",
+                    f"荒川総合スポーツセンター：\n{arakawa_url}",
+                    f"港区スポーツセンター：\n{minato_url}",
+                    f"文京区総合体育館：\n{bunkyo_url}"
                 ])
 
         except ValueError:
             reply = "日付の形式が正しくありません（例：20250722）"
     else:
-        # 日付がない or 認識できなかった場合
         reply = "日付を8桁（例：20250722）または yyyy-mm-dd 形式で入力してください。"
 
     line_bot_api.reply_message(
